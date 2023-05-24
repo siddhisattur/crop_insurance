@@ -1,0 +1,64 @@
+pragma solidity ^0.8.0;
+
+// Import Chainlink contracts
+import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+
+contract CropInsurance {
+    // Declare variables for weather and crop failure measures
+    AggregatorV3Interface internal temperature;
+    uint256 public minimumTemperature;
+    AggregatorV3Interface internal rainfall;
+    uint256 public minimumRainfall;
+    bool public pestAttack;
+
+    // Declare variables for the crop insurance policy
+    address payable public policyHolder;
+    uint256 public premium;
+    uint256 public sumInsured;
+    bool public isPolicyActive;
+    uint256 public policyExpiry;
+
+    constructor(address payable _policyHolder, uint256 _premium, uint256 _sumInsured, uint256 _policyExpiry) {
+        // Set the policy variables
+        policyHolder = _policyHolder;
+        premium = _premium;
+        sumInsured = _sumInsured;
+        isPolicyActive = true;
+        policyExpiry = _policyExpiry;
+
+        // Set the weather and crop failure measure variables
+        temperature = AggregatorV3Interface(0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419);
+        rainfall = AggregatorV3Interface(0x8A753747A1Fa494EC906cE90E9f37563A8AF630e);
+        minimumTemperature = 20; // Celsius
+        minimumRainfall = 100; // Millimeters
+        pestAttack = false;
+    }
+
+    // Function to update weather and crop failure measures
+    function updateWeather() public {
+        // Get the latest temperature and rainfall data from Chainlink
+        (, int256 temperatureValue, , ,) = temperature.latestRoundData();
+        (, int256 rainfallValue, , ,) = rainfall.latestRoundData();
+
+        // Convert temperature and rainfall values to uint256
+        uint256 currentTemperature = uint256(temperatureValue);
+        uint256 currentRainfall = uint256(rainfallValue);
+
+        // Update the pest attack variable
+        if (currentTemperature > 30 && currentRainfall < 50) {
+            pestAttack = true;
+        }
+
+        // Check if the weather and crop failure measures meet the policy conditions
+        if (currentTemperature < minimumTemperature && currentRainfall > minimumRainfall && pestAttack == false && isPolicyActive == true && block.timestamp < policyExpiry) {
+            // Payout the crop insurance to the policy holder
+            policyHolder.transfer(sumInsured);
+            isPolicyActive = false;
+        }
+    }
+
+    // Function to check the policy status
+    function checkPolicyStatus() public view returns (bool) {
+        return isPolicyActive;
+    }
+}
